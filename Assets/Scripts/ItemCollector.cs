@@ -14,7 +14,6 @@ public class ItemCollector : MonoBehaviour
         if (other.gameObject.CompareTag("Cherry"))
         {
             collectionSoundEffect.Play();
-            Destroy(other.gameObject);
             cherries++;
                 cherriesText.text = $"Cherries : {cherries}";
         }

@@ -1,4 +1,6 @@
+using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 public class PlayerMovement : MonoBehaviour
 {
@@ -6,11 +8,13 @@ public class PlayerMovement : MonoBehaviour
     private BoxCollider2D coll;
     private SpriteRenderer sprite;
     private Animator anim;
-
-    private float dirX = 0f;
+    private bool isJump;
+    private bool _isDoubleJump;
+    private float _dirX;
+    private float _currentSpeed;
     [SerializeField] private LayerMask jumpableGround;
     [SerializeField] private float moveSpeed = 7f;
-    [SerializeField] private float jimpForce = 14f;
+    [FormerlySerializedAs("jimpForce")] [SerializeField] private float jumpForce = 14f;
     [SerializeField] private AudioSource jumpSoundEffect; 
     
     private enum MovementState
@@ -18,7 +22,8 @@ public class PlayerMovement : MonoBehaviour
         Idle,
         Running,
         Jumping,
-        Falling
+        Falling,
+        DoubleJump
     }
 
     
@@ -33,14 +38,30 @@ public class PlayerMovement : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        dirX = Input.GetAxisRaw("Horizontal");
-
-        rb.velocity = new Vector2(dirX * moveSpeed, rb.velocity.y);
-   
-        if (Input.GetButtonDown("Jump") && IsGrounded())
+        _dirX = Input.GetAxisRaw("Horizontal");
+        Debug.Log(_dirX);
+        _currentSpeed = _dirX == 0 ? _currentSpeed : _dirX * moveSpeed;
+        rb.velocity = new Vector2(_currentSpeed, rb.velocity.y);
+        if (Input.GetButtonDown("Jump") )
         {
-            jumpSoundEffect.Play();
-            rb.velocity = new Vector2(rb.velocity.x, jimpForce);
+            _isDoubleJump = false;
+            
+            if (IsGrounded())
+            {
+                isJump = true;
+                jumpSoundEffect.Play();
+                rb.velocity = new Vector2(rb.velocity.x, jumpForce);
+            }
+            else
+            {
+                if (isJump && rb.velocity.y > .1f)
+                {
+                    jumpSoundEffect.Play();
+                    rb.velocity = new Vector2(rb.velocity.x, jumpForce);
+                    isJump = false;
+                    _isDoubleJump = true;
+                }
+            }
         }
 
         UpdateAnimationState();
@@ -50,7 +71,7 @@ public class PlayerMovement : MonoBehaviour
     private void UpdateAnimationState()
     {
         MovementState state;
-        switch (dirX)
+        switch (_currentSpeed)
         {
             case > 0f:
                 state = MovementState.Running;
@@ -67,15 +88,58 @@ public class PlayerMovement : MonoBehaviour
 
         if (rb.velocity.y > .1f)
         {
-            state = MovementState.Jumping;
+            state = _isDoubleJump? MovementState.DoubleJump: MovementState.Jumping;
         }
         else if (rb.velocity.y < -.1f)
         {
             state = MovementState.Falling;
         }
+        
         anim.SetInteger("state", (int)state);
     }
 
+    public void OnLeft()
+    {
+        Debug.Log("Left");
+        _currentSpeed = -moveSpeed;
+    }
+
+    public void OnRight()
+    {
+        Debug.Log("Right");
+        _currentSpeed = moveSpeed;
+    }
+
+    public void Jump()
+    {
+        Debug.Log("Jump click");
+        _isDoubleJump = false;
+            
+        if (IsGrounded())
+        {
+            Debug.Log("Jump");
+            isJump = true;
+            jumpSoundEffect.Play();
+            rb.velocity = new Vector2(rb.velocity.x, jumpForce);
+        }
+        else
+        {
+            if (isJump && rb.velocity.y > .1f)
+            {
+                Debug.Log("2Jump");
+                jumpSoundEffect.Play();
+                rb.velocity = new Vector2(rb.velocity.x, jumpForce);
+                isJump = false;
+                _isDoubleJump = true;
+            }
+        }
+    }
+
+    public void Stop()
+    {
+        _currentSpeed = 0;
+    }
+    
     private bool IsGrounded()
     {
         return Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0f, Vector2.down, .3f, jumpableGround);
